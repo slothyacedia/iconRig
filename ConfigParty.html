@@ -1279,8 +1279,17 @@
       }
 
       // ---------- CONFIG GENERATION ----------
+      const replacements = {
+        "{username}": "${u}",
+        "{group}": "${g}",
+      }
+
       function expandPlaceholders(s) {
-        return (s || "").split("{username}").join("${u}").split("{group}").join("${g}")
+        for (const [search, replacement] of Object.entries(replacements)) {
+          s = s.replaceAll(search, replacement)
+        }
+
+        return s
       }
 
       function buildConfig() {
@@ -1366,7 +1375,11 @@
 
       // ---------- CONFIG PARSING (Load config file) ----------
       function unexpandPlaceholders(s) {
-        return (s || "").split("${u}").join("{username}").split("${g}").join("{group}")
+        for (const [search, replacement] of Object.entries(replacements)) {
+          s = s.replaceAll(replacement, search)
+        }
+
+        return s
       }
 
       function parseConfig(text) {
