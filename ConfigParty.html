@@ -801,7 +801,7 @@
       </div>
     </div>
     <label class="small" style="margin-top:14px;">Extra global lines (one per line)</label>
-    <textarea rows="${esc(g.extra).split("\n").length > 2 ? esc(g.extra).split("\n").length : 2}" placeholder="e.g. rproxy: 1&#10;chpw" onchange="updateGlobalField('extra',this.value)">${esc(g.extra)}</textarea>
+    <textarea rows="${Math.max(esc(g.extra).split("\n").length, 2)}" placeholder="e.g. rproxy: 1&#10;chpw" onchange="updateGlobalField('extra',this.value)">${esc(g.extra)}</textarea>
   `
         filterChipContainer("chips-shareadmins", g.shares.search || "")
       }
@@ -1269,7 +1269,7 @@
       </div>
       <div class="row" style="margin-top:8px; align-items:flex-start;">
         <label class="small" style="min-width:110px; margin-top:8px;">Other flags</label>
-        <textarea rows="${esc(v.extraFlags).split("\n").length > 2 ? esc(v.extraFlags).split("\n").length : 2}" style="flex:1;" placeholder="e.g. fk:4&#10;noidx:\\.iso$"
+        <textarea rows="${Math.max(esc(v.extraFlags).split("\n").length, 2)}" style="flex:1;" placeholder="e.g. fk:4&#10;noidx:\\.iso$"
                   onchange="updateVolume(${v.id},'extraFlags',this.value)">${esc(v.extraFlags || "")}</textarea>
       </div>
     </div>
