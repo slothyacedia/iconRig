@@ -39,6 +39,10 @@
         gap: 14px;
         flex-wrap: wrap;
         justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--bg);
       }
       header .titles {
         display: flex;
@@ -85,7 +89,7 @@
       .output-inner {
         padding: 24px 24px;
         position: sticky;
-        top: 0;
+        top: var(--header-h, 64px);
         max-height: none;
         overflow-y: auto;
       }
@@ -479,11 +483,6 @@
         flex-direction: column;
       }
 
-      html,
-      body {
-        overflow-x: hidden;
-      }
-
       @media (max-width: 640px) {
         header {
           padding: 14px 16px;
@@ -569,7 +568,8 @@
         <input type="file" id="import-json-file" accept=".json,application/json" style="display: none" onchange="handleImportJSON(this)" />
         <button onclick="exportJSON()">Export JSON</button>
         <button onclick="document.getElementById('import-json-file').click()">Import JSON</button>
-        <button onclick="document.getElementById('load-file').click()">Load .conf file&hellip;</button>
+        <button onclick="downloadOut()">Download .conf</button>
+        <button onclick="document.getElementById('load-file').click()">Load .conf</button>
       </div>
     </header>
 
@@ -622,7 +622,6 @@
           <h2>copyparty.conf</h2>
           <div class="out-actions">
             <button onclick="copyOut()">Copy</button>
-            <button onclick="downloadOut()">Download .conf</button>
           </div>
           <pre id="out"></pre>
         </div>
@@ -843,11 +842,15 @@
         return copy
       }
       let dragInfo = null
+      function armDrag(handleEl) {
+        const entity = handleEl.closest(".entity")
+        if (entity) entity.setAttribute("draggable", "true")
+      }
+      function disarmDrag(handleEl) {
+        const entity = handleEl.closest(".entity")
+        if (entity) entity.setAttribute("draggable", "false")
+      }
       function onDragStart(e, listType, id) {
-        if (!e.target.closest(".drag-handle")) {
-          e.preventDefault()
-          return
-        }
         dragInfo = { listType, id }
         e.dataTransfer.effectAllowed = "move"
         try {
@@ -876,6 +879,7 @@
       }
       function onDragEnd(e) {
         e.currentTarget.classList.remove("dragging")
+        e.currentTarget.setAttribute("draggable", "false")
         document.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"))
         dragInfo = null
       }
@@ -931,7 +935,7 @@
         el.innerHTML = state.users
           .map(
             (u, idx) => `
-    <div class="entity" draggable="true"
+    <div class="entity" draggable="false"
          ondragstart="onDragStart(event,'user',${u.id})"
          ondragover="onDragOver(event,'user')"
          ondragleave="onDragLeave(event)"
@@ -942,7 +946,7 @@
           <input type="text" class="rename-input" value="${escAttr(u.username)}" onchange="renameUser(${u.id}, this.value)">
         </div>
         <div class="entity-actions">
-          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <span class="drag-handle" title="Drag to reorder" onmousedown="armDrag(this)" onmouseup="disarmDrag(this)">⠿</span>
           <button class="ghost tiny" onclick="moveUser(${u.id},-1)" title="Move up" ${idx === 0 ? "disabled" : ""}>▲</button>
           <button class="ghost tiny" onclick="moveUser(${u.id},1)" title="Move down" ${idx === state.users.length - 1 ? "disabled" : ""}>▼</button>
           <button class="ghost" onclick="removeUser(${u.id})" title="Remove user">✕</button>
@@ -1050,7 +1054,7 @@
         el.innerHTML = state.groups
           .map(
             (g, idx) => `
-    <div class="entity" draggable="true"
+    <div class="entity" draggable="false"
          ondragstart="onDragStart(event,'group',${g.id})"
          ondragover="onDragOver(event,'group')"
          ondragleave="onDragLeave(event)"
@@ -1062,7 +1066,7 @@
           <input type="text" class="rename-input" value="${escAttr(g.name)}" onchange="renameGroup(${g.id}, this.value)">
         </div>
         <div class="entity-actions">
-          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <span class="drag-handle" title="Drag to reorder" onmousedown="armDrag(this)" onmouseup="disarmDrag(this)">⠿</span>
           <button class="ghost tiny" onclick="moveGroup(${g.id},-1)" title="Move up" ${idx === 0 ? "disabled" : ""}>▲</button>
           <button class="ghost tiny" onclick="moveGroup(${g.id},1)" title="Move down" ${idx === state.groups.length - 1 ? "disabled" : ""}>▼</button>
           <button class="ghost" onclick="removeGroup(${g.id})" title="Remove group">✕</button>
@@ -1205,7 +1209,7 @@
             const usesVolumeMacro = ((v.vpath || "") + (v.realpath || "")).includes("{volume}")
             const volSegmentPreview = lastPathSegment(v.vpath) || "(unset)"
             return `
-    <div class="entity" draggable="true"
+    <div class="entity" draggable="false"
          ondragstart="onDragStart(event,'volume',${v.id})"
          ondragover="onDragOver(event,'volume')"
          ondragleave="onDragLeave(event)"
@@ -1216,7 +1220,7 @@
           <strong style="font-family:var(--mono);font-size:13.5px;">${esc(v.vpath || "/(unset)")}</strong>
         </div>
         <div class="entity-actions">
-          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <span class="drag-handle" title="Drag to reorder" onmousedown="armDrag(this)" onmouseup="disarmDrag(this)">⠿</span>
           <button class="ghost tiny" onclick="moveVolume(${v.id},-1)" title="Move up" ${idx === 0 ? "disabled" : ""}>▲</button>
           <button class="ghost tiny" onclick="moveVolume(${v.id},1)" title="Move down" ${idx === state.volumes.length - 1 ? "disabled" : ""}>▼</button>
           <button class="ghost" onclick="removeVolume(${v.id})" title="Remove volume">✕</button>
@@ -1796,6 +1800,13 @@
       })
 
       renderAll()
+
+      function syncHeaderHeight() {
+        const header = document.querySelector("header")
+        if (header) document.documentElement.style.setProperty("--header-h", header.offsetHeight + "px")
+      }
+      syncHeaderHeight()
+      window.addEventListener("resize", syncHeaderHeight)
     </script>
   </body>
 </html>
