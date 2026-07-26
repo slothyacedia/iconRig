@@ -608,7 +608,9 @@
           <p class="hint">Each volume maps a URL path to a real folder, with per-user/group permissions.</p>
           <div class="placeholder-note">
             Type <code>{username}</code> anywhere in the URL path or real path to make a <strong>per-user volume</strong> - e.g. URL path
-            <code>/users/{username}</code>.
+            <code>/users/{username}</code>.<br />
+            Type <code>{volume}</code> in the real path to reuse the URL path's last folder name - e.g. URL path <code>/media/movies</code> with real path
+            <code>/mnt/data/{volume}</code> becomes <code>/mnt/data/movies</code>. This is resolved by this tool, not copyparty itself.
           </div>
           <div id="volume-list" style="margin-top: 14px"></div>
           <button class="primary" onclick="addVolume()">+ Add volume</button>
@@ -1201,6 +1203,8 @@
         el.innerHTML = state.volumes
           .map((v, idx) => {
             const usesPlaceholder = ((v.vpath || "") + (v.realpath || "")).includes("{username}")
+            const usesVolumeMacro = ((v.vpath || "") + (v.realpath || "")).includes("{volume}")
+            const volSegmentPreview = lastPathSegment(v.vpath) || "(unset)"
             return `
     <div class="entity" draggable="true"
          ondragstart="onDragStart(event,'volume',${v.id})"
@@ -1232,6 +1236,7 @@
         </div>
       </div>
       ${usesPlaceholder ? '<div class="placeholder-note">Per-user volume - will expand to one folder per account (<code>${u}</code>). Use the <code>{username}</code> subject below to grant owner-only access.</div>' : ""}
+      ${usesVolumeMacro ? `<div class="placeholder-note"><code>{volume}</code> will resolve to <code>${esc(volSegmentPreview)}</code> (the last folder in this volume's URL path).</div>` : ""}
 
       <div style="margin-top:12px;">
         <label class="small">Access rules</label>
@@ -1279,47 +1284,58 @@
       }
 
       // ---------- CONFIG GENERATION ----------
+      function lastPathSegment(volumePath) {
+        const parts = (volumePath || "").split("/").filter(Boolean)
+        return parts.length ? parts[parts.length - 1] : ""
+      }
+
       const replacements = {
         "{username}": "${u}",
         "{group}": "${g}",
       }
 
-      function expandPlaceholders(s) {
-        for (const [search, replacement] of Object.entries(replacements)) {
-          s = s.replaceAll(search, replacement)
+      function expandPlaceholders(string, volumeSegment) {
+        let localReplacements = replacements
+
+        if (volumeSegment !== undefined) {
+          localReplacements["{volume}"] = volumeSegment
         }
 
-        return s
+        for (const [search, replacement] of Object.entries(replacements)) {
+          string = string.replaceAll(search, replacement)
+        }
+
+        return string
       }
 
       function buildConfig() {
-        const g = state.global
+        const globalConfig = state.global
         const lines = []
         lines.push("[global]")
-        if (g.name.trim()) lines.push(`  name: ${g.name.trim()}`)
-        if (g.port.trim()) lines.push(`  p: ${g.port.trim()}`)
-        Object.entries(g.flags).forEach(([k, v]) => {
+        if (globalConfig.name.trim()) lines.push(`  name: ${globalConfig.name.trim()}`)
+        if (globalConfig.port.trim()) lines.push(`  p: ${globalConfig.port.trim()}`)
+        Object.entries(globalConfig.flags).forEach(([k, v]) => {
           if (v) lines.push(`  ${k}`)
         })
-        if (g.ftp.enabled) lines.push(`  ftp: ${g.ftp.port}`)
-        if (g.ftps.enabled) lines.push(`  ftps: ${g.ftps.port}`)
-        if (g.sftp.enabled) {
-          lines.push(`  sftp: ${g.sftp.port}`)
-          if (g.sftp.pw) lines.push("  sftp-pw")
+        if (globalConfig.ftp.enabled) lines.push(`  ftp: ${globalConfig.ftp.port}`)
+        if (globalConfig.ftps.enabled) lines.push(`  ftps: ${globalConfig.ftps.port}`)
+        if (globalConfig.sftp.enabled) {
+          lines.push(`  sftp: ${globalConfig.sftp.port}`)
+          if (globalConfig.sftp.pw) lines.push("  sftp-pw")
         }
-        if (g.smb.enabled) {
+        if (globalConfig.smb.enabled) {
           lines.push("  smb")
-          if (g.smb.port && g.smb.port !== "445") lines.push(`  smb-port: ${g.smb.port}`)
-          if (g.smb.write) lines.push("  smbw")
+          if (globalConfig.smb.port && globalConfig.smb.port !== "445") lines.push(`  smb-port: ${globalConfig.smb.port}`)
+          if (globalConfig.smb.write) lines.push("  smbw")
         }
-        if (g.webdav.disabled) lines.push("  no-dav")
-        if (g.webdav.authRequired) lines.push("  dav-auth")
-        if (g.shares.enabled) {
-          lines.push(`  shr: ${(g.shares.path || "/s").trim() || "/s"}`)
-          if (g.shares.adminOnly) lines.push("  shr-who: a")
-          if (g.shares.admins && g.shares.admins.length) lines.push(`  shr-adm: ${g.shares.admins.join(", ")}`)
+        if (globalConfig.webdav.disabled) lines.push("  no-dav")
+        if (globalConfig.webdav.authRequired) lines.push("  dav-auth")
+        if (globalConfig.shares.enabled) {
+          lines.push(`  shr: ${(globalConfig.shares.path || "/s").trim() || "/s"}`)
+          if (globalConfig.shares.adminOnly) lines.push("  shr-who: a")
+          if (globalConfig.shares.admins && globalConfig.shares.admins.length) lines.push(`  shr-adm: ${globalConfig.shares.admins.join(", ")}`)
         }
-        const extra = (g.extra || "")
+        const extra = (globalConfig.extra || "")
           .split("\n")
           .map((l) => l.trim())
           .filter(Boolean)
@@ -1328,37 +1344,38 @@
 
         if (state.users.length) {
           lines.push("[accounts]")
-          state.users.forEach((u) => lines.push(`  ${u.username}: ${u.password}`))
+          state.users.forEach((user) => lines.push(`  ${user.username}: ${user.password}`))
           lines.push("")
         }
 
         if (state.groups.length) {
           lines.push("[groups]")
-          state.groups.forEach((g2) => lines.push(`  ${g2.name}: ${g2.members.join(", ")}`))
+          state.groups.forEach((group) => lines.push(`  ${group.name}: ${group.members.join(", ")}`))
           lines.push("")
         }
 
-        state.volumes.forEach((v) => {
-          if (!v.vpath && !v.realpath) return
-          const vpath = expandPlaceholders(v.vpath || "/")
-          const realpath = expandPlaceholders(v.realpath || ".")
+        state.volumes.forEach((volume) => {
+          if (!volume.vpath && !volume.realpath) return
+          const volSegment = lastPathSegment(volume.vpath)
+          const vpath = expandPlaceholders(volume.vpath || "/", volSegment)
+          const realpath = expandPlaceholders(volume.realpath || ".", volSegment)
           lines.push(`[${vpath}]`)
           lines.push(`  ${realpath}`)
-          if (v.rules.length) {
+          if (volume.rules.length) {
             lines.push("  accs:")
             const byLetters = {}
-            v.rules.forEach((r) => {
+            volume.rules.forEach((r) => {
               if (!r.subject) return
-              ;(byLetters[r.letters] = byLetters[r.letters] || []).push(expandPlaceholders(r.subject) || r.subject)
+              ;(byLetters[r.letters] = byLetters[r.letters] || []).push(expandPlaceholders(r.subject, volSegment) || r.subject)
             })
             Object.entries(byLetters).forEach(([letters, subs]) => {
               lines.push(`    ${letters}: ${subs.join(", ")}`)
             })
           }
-          const activeFlags = Object.entries(v.flags)
+          const activeFlags = Object.entries(volume.flags)
             .filter(([, on]) => on)
             .map(([f]) => f)
-          const extraFlagsArr = (v.extraFlags || "")
+          const extraFlagsArr = (volume.extraFlags || "")
             .split("\n")
             .map((s) => s.trim())
             .filter(Boolean)
@@ -1374,12 +1391,12 @@
       }
 
       // ---------- CONFIG PARSING (Load config file) ----------
-      function unexpandPlaceholders(s) {
+      function unexpandPlaceholders(string) {
         for (const [search, replacement] of Object.entries(replacements)) {
-          s = s.replaceAll(replacement, search)
+          string = string.replaceAll(replacement, search)
         }
 
-        return s
+        return string
       }
 
       function parseConfig(text) {
@@ -1554,14 +1571,14 @@
         const data = {
           schema: "copyparty-config-builder/1",
           global: state.global,
-          users: state.users.map((u) => ({ username: u.username, password: u.password })),
-          groups: state.groups.map((g) => ({ name: g.name, members: g.members })),
-          volumes: state.volumes.map((v) => ({
-            vpath: v.vpath,
-            realpath: v.realpath,
-            rules: v.rules.map((r) => ({ subject: r.subject, letters: r.letters })),
-            flags: v.flags,
-            extraFlags: v.extraFlags,
+          users: state.users.map((user) => ({ username: user.username, password: user.password })),
+          groups: state.groups.map((group) => ({ name: group.name, members: group.members })),
+          volumes: state.volumes.map((volume) => ({
+            vpath: volume.vpath,
+            realpath: volume.realpath,
+            rules: volume.rules.map((r) => ({ subject: r.subject, letters: r.letters })),
+            flags: volume.flags,
+            extraFlags: volume.extraFlags,
           })),
         }
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
@@ -1571,7 +1588,7 @@
         a.click()
       }
 
-      function normalizeGlobal(g) {
+      function normalizeGlobal(global) {
         const base = {
           name: "",
           port: "3923",
@@ -1584,22 +1601,22 @@
           webdav: { disabled: false, authRequired: false },
           shares: { enabled: false, path: "/s", adminOnly: false, admins: [], search: "" },
         }
-        if (!g || typeof g !== "object") return base
+        if (!global || typeof global !== "object") return base
         return {
-          name: String(g.name ?? base.name),
-          port: String(g.port ?? base.port),
-          flags: Object.assign({}, base.flags, g.flags || {}),
-          extra: String(g.extra ?? base.extra),
-          ftp: Object.assign({}, base.ftp, g.ftp || {}),
-          ftps: Object.assign({}, base.ftps, g.ftps || {}),
-          sftp: Object.assign({}, base.sftp, g.sftp || {}),
-          smb: Object.assign({}, base.smb, g.smb || {}),
-          webdav: Object.assign({}, base.webdav, g.webdav || {}),
-          shares: Object.assign({}, base.shares, g.shares || {}, {
-            admins: Array.isArray(g.shares && g.shares.admins)
-              ? g.shares.admins.map(String).filter(Boolean)
-              : typeof (g.shares && g.shares.admins) === "string"
-                ? g.shares.admins
+          name: String(global.name ?? base.name),
+          port: String(global.port ?? base.port),
+          flags: Object.assign({}, base.flags, global.flags || {}),
+          extra: String(global.extra ?? base.extra),
+          ftp: Object.assign({}, base.ftp, global.ftp || {}),
+          ftps: Object.assign({}, base.ftps, global.ftps || {}),
+          sftp: Object.assign({}, base.sftp, global.sftp || {}),
+          smb: Object.assign({}, base.smb, global.smb || {}),
+          webdav: Object.assign({}, base.webdav, global.webdav || {}),
+          shares: Object.assign({}, base.shares, global.shares || {}, {
+            admins: Array.isArray(global.shares && global.shares.admins)
+              ? global.shares.admins.map(String).filter(Boolean)
+              : typeof (global.shares && global.shares.admins) === "string"
+                ? global.shares.admins
                     .split(",")
                     .map((s) => s.trim())
                     .filter(Boolean)
@@ -1619,39 +1636,39 @@
 
             const users = Array.isArray(data.users)
               ? data.users
-                  .map((u) => ({
+                  .map((user) => ({
                     id: uid(),
-                    username: String(u.username ?? ""),
-                    password: String(u.password ?? ""),
+                    username: String(user.username ?? ""),
+                    password: String(user.password ?? ""),
                   }))
-                  .filter((u) => u.username)
+                  .filter((user) => user.username)
               : []
 
             const groups = Array.isArray(data.groups)
               ? data.groups
-                  .map((g) => ({
+                  .map((group) => ({
                     id: uid(),
-                    name: String(g.name ?? ""),
-                    members: Array.isArray(g.members) ? g.members.map(String) : [],
+                    name: String(group.name ?? ""),
+                    members: Array.isArray(group.members) ? group.members.map(String) : [],
                     search: "",
                   }))
-                  .filter((g) => g.name)
+                  .filter((group) => group.name)
               : []
 
             const volumes = Array.isArray(data.volumes)
-              ? data.volumes.map((v) => ({
+              ? data.volumes.map((volume) => ({
                   id: uid(),
-                  vpath: String(v.vpath ?? ""),
-                  realpath: String(v.realpath ?? ""),
-                  rules: Array.isArray(v.rules)
-                    ? v.rules.map((r) => ({
+                  vpath: String(volume.vpath ?? ""),
+                  realpath: String(volume.realpath ?? ""),
+                  rules: Array.isArray(volume.rules)
+                    ? volume.rules.map((r) => ({
                         id: uid(),
                         subject: String(r.subject ?? "*"),
                         letters: String(r.letters ?? "r"),
                       }))
                     : [],
-                  flags: Object.assign({ e2d: false, e2ds: false, e2dsa: false, e2t: false, e2ts: false, dedup: false }, v.flags || {}),
-                  extraFlags: String(v.extraFlags ?? ""),
+                  flags: Object.assign({ e2d: false, e2ds: false, e2dsa: false, e2t: false, e2ts: false, dedup: false }, volume.flags || {}),
+                  extraFlags: String(volume.extraFlags ?? ""),
                 }))
               : []
 
@@ -1732,11 +1749,11 @@
         document.getElementById("out").innerHTML = html
       }
 
-      function revealPw(el) {
-        el.textContent = el.dataset.pw
+      function revealPw(element) {
+        element.textContent = element.dataset.pw
       }
-      function maskPw(el) {
-        el.textContent = el.dataset.dots
+      function maskPw(element) {
+        element.textContent = element.dataset.dots
       }
 
       function copyOut() {
