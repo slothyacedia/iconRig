@@ -844,8 +844,7 @@
       }
       let dragInfo = null
       function onDragStart(e, listType, id) {
-        const tag = (e.target.tagName || "").toLowerCase()
-        if (["input", "textarea", "select", "button"].includes(tag)) {
+        if (!e.target.closest(".drag-handle")) {
           e.preventDefault()
           return
         }
@@ -1295,13 +1294,13 @@
       }
 
       function expandPlaceholders(string, volumeSegment) {
-        let localReplacements = replacements
+        let localReplacements = { ...replacements }
 
         if (volumeSegment !== undefined) {
           localReplacements["{volume}"] = volumeSegment
         }
 
-        for (const [search, replacement] of Object.entries(replacements)) {
+        for (const [search, replacement] of Object.entries(localReplacements)) {
           string = string.replaceAll(search, replacement)
         }
 
