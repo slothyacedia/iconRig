@@ -38,6 +38,12 @@
   <defs
      id="defs1">
     <rect
+       x="-17.255154"
+       y="200.67105"
+       width="574.53271"
+       height="231.34688"
+       id="rect12" />
+    <rect
        x="7.0298774"
        y="282.47326"
        width="687.01075"
@@ -122,11 +128,11 @@
        style="opacity:1" />
     <text
        xml:space="preserve"
-       id="text10"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:100px;line-height:0.6;font-family:'Corptic DEMO';-inkscape-font-specification:'Corptic DEMO, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;letter-spacing:2.5px;word-spacing:0px;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect11);fill:#ffffff;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:50;stroke-dasharray:none;paint-order:stroke markers fill"
-       transform="matrix(1.092897,-0.29284087,0,1.092897,-127.09892,-135.75096)"><tspan
-         x="121.78546"
-         y="334.63761"
+       id="text2"
+       style="font-size:100px;line-height:0.6;font-family:'Corptic DEMO';-inkscape-font-specification:'Corptic DEMO, Normal';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect12);fill:#000000;stroke:#ffffff;stroke-width:2.61;stroke-miterlimit:50;stroke-dasharray:none;paint-order:stroke fill markers"
+       transform="matrix(1.1494262,-0.30798782,0,1.1494262,-54.357522,-78.721569)"><tspan
+         x="50.011047"
+         y="252.83682"
          id="tspan1">conforge</tspan></text>
   </g>
 </svg>
